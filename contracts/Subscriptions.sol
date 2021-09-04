@@ -118,26 +118,33 @@ contract Subscription is AccessControl {
             return false;
         }
 
+        // Grab when the subscription ends
+        uint256 end = subscriptionEndings[_type];
+
         // Check if already subscribed
         if (indexOf[_subscriber] != 0 || _subscriber == owner()) {
             // Actualiza el subsriber
             Subscriber storage sub = subscribers[indexOf[_subscriber]];
             // Update subscription end and secret key
-            sub.subEnd += subscriptionEndings[_type];
             sub.scretKey = key;
+            // Check if current subscription has ended
+            if (block.timestamp > sub.subEnd) {
+                // Sub end is the timestamp plus days till over.
+                sub.subEnd = block.timestamp + end;
+            } else {
+                // Add days till over
+                sub.subEnd += end;
+            }
 
             // End function here
             return true;
         }
-
-        // Grab when the subscription ends
-        uint256 end = block.timestamp + subscriptionEndings[_type];
             
         // Update data
         Subscriber memory subscriber = Subscriber(
             _subscriber,
             subscribers.length,
-            end,
+            block.timestamp + end,
             key
         );
         subscribers.push(subscriber);
