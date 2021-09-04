@@ -2,8 +2,8 @@
 
 pragma solidity ^0.8.0;
 
-import "C:/Users/jorda/.brownie/packages/OpenZeppelin/openzeppelin-contracts@4.2.0/contracts/jordans/PaymentsHandler.sol";
-import "C:/Users/jorda/.brownie/packages/OpenZeppelin/openzeppelin-contracts@4.2.0/contracts/jordans/AccessControl.sol";
+import "./PaymentsHandler.sol";
+import "./AccessControl.sol";
 
 /**
     @title Subscription
