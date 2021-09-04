@@ -1,4 +1,5 @@
 from brownie import Subscription, accounts, web3
+import json
 
 # Inicia las cuentas
 owner = accounts[0]
@@ -17,12 +18,21 @@ subscriptions = Subscription.deploy({'from': owner})
 # payments_contract = web3.eth.contract(abi=)
 
 def main():
-    subscribe(1, "test", 0.05)
-    subscribe(0, "SUPER SECRET KEY", 0.01, sender=jordan)
-    gift(2, arthur, "Aether", 0.1, tessia)
-    change_key("My man", arthur)
-    print(is_subbed(arthur))
-    print(valid_subscriber(arthur, "My man"))
+    # Escribe al archivo de JSON
+    json_file = open("contract.json", "w")
+    data = {
+        "address": subscriptions.address,
+        "abi": subscriptions.abi
+    }
+    json_file.write(json.dumps(data))
+    json_file.close()
+
+    # subscribe(1, "test", 0.05)
+    # subscribe(0, "SUPER SECRET KEY", 0.01, sender=jordan)
+    # gift(2, arthur, "Aether", 0.1, tessia)
+    # change_key("My man", arthur)
+    # print(is_subbed(arthur))
+    # print(valid_subscriber(arthur, "My man"))
 
 
 def subscribe(type, key, value, sender=None):
