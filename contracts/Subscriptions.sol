@@ -17,7 +17,7 @@ contract Subscription is AccessControl {
         address payerAddress; // The address
         uint256 id; // The id manly for grabbing from array
         uint256 subEnd; // When does the subscription end?
-        string scretKey; // The secret key that nobody should know, is CaSe SeNsItIvE
+        string secretKey; // The secret key that nobody should know, is CaSe SeNsItIvE
     }
 
     // Mapping to grab Subscriber based on address
@@ -34,6 +34,10 @@ contract Subscription is AccessControl {
     uint256 private quarterlyPay = 0.05 ether; // $25 USD
     uint256 private halflyPay = 0.1 ether; // $50 USD
     uint256 private yearlyPay = 0.2 ether; // $100 USD
+
+    // Forgot secret key fee. Note should never change, but for the chance
+    // that it causes issues it is mutable
+    uint256 private forgotKeyFee = 0.001 ether; // $0.50 USD
 
     // Array to hold paymenttypes
     uint256[] private paymentTypes = [
@@ -55,7 +59,7 @@ contract Subscription is AccessControl {
         handler = new PaymentsHandler();
         // Gen Subscriber
         Subscriber memory genSubscriber = Subscriber(
-            _msgSender(),
+            msg.sender,
             0,
             block.timestamp,
             "Secret Key"
@@ -65,7 +69,7 @@ contract Subscription is AccessControl {
 
     modifier onlySubscribed() {
         require(
-            indexOf[_msgSender()] != 0 || _msgSender() == owner(), 
+            indexOf[msg.sender] != 0 || msg.sender == owner(), 
             "Subscriptions: Address is not subscribed."
         );
         _;
@@ -76,11 +80,9 @@ contract Subscription is AccessControl {
 
         @param _type uint, the type of subscription.
         @param key string memory, a secret key so only you have access to the subscription.
-
-        @return bool success
      */
-    function subscribe(uint _type, string memory key) public payable returns (bool) {
-        return _subscribe(_type, _msgSender(), key);
+    function subscribe(uint _type, string memory key) public payable {
+        _subscribe(_type, msg.sender, key);
     }
 
     /**
@@ -89,12 +91,10 @@ contract Subscription is AccessControl {
         @param _type uint, the type of subscription.
         @param subscriber address, the address of the one being gifter or rewarded the subscription.
         @param key string memory, a secret key you decide. Make sure you give the subscriber the key so they can access their subscriptions.
-
-        @return bool, success
      */
-    function giftSubscription(uint _type, address subscriber, string memory key) public payable returns (bool) {
-        require(_msgSender() != subscriber, "Subscriptions: You can not gift yourself.");
-        return _subscribe(_type, subscriber, key);
+    function giftSubscription(uint _type, address subscriber, string memory key) public payable {
+        require(msg.sender != subscriber, "Subscriptions: You can not gift yourself.");
+        _subscribe(_type, subscriber, key);
     }
 
     /**
@@ -126,7 +126,7 @@ contract Subscription is AccessControl {
             // Actualiza el subsriber
             Subscriber storage sub = subscribers[indexOf[_subscriber]];
             // Update subscription end and secret key
-            sub.scretKey = key;
+            sub.secretKey = key;
             // Check if current subscription has ended
             if (block.timestamp > sub.subEnd) {
                 // Sub end is the timestamp plus days till over.
@@ -201,7 +201,7 @@ contract Subscription is AccessControl {
         // Grab subscriber
         Subscriber storage sub = subscribers[indexOf[subscriber]];
         // Check keys
-        if (keccak256(abi.encode(secretKey)) == keccak256(abi.encode(sub.scretKey))) {
+        if (keccak256(abi.encode(secretKey)) == keccak256(abi.encode(sub.secretKey))) {
             // They are the same! Lessgo
             return true;
         } else {
@@ -211,23 +211,32 @@ contract Subscription is AccessControl {
     }
 
     /**
-        @dev YOUR (msg.sender) Secret key lookup
+        @dev YOUR (msg.sender) secret key lookup
 
-        Note returns MSG.SENDER's scecret key.
+        Note returns MSG.SENDER's secret key.
+        Note you must pay in order to get your secret key if you forgot it.
      */
-    function forgotSecretKey() public view onlySubscribed returns (string memory) {
-        Subscriber storage subscriber = subscribers[indexOf[_msgSender()]];
-        return subscriber.scretKey;
+    function forgotSecretKey() public payable onlySubscribed returns (string memory) {
+        require(msg.value == forgotKeyFee, "Subscriptions: Must send EXACT value.");
+        Subscriber storage subscriber = subscribers[indexOf[msg.sender]];
+        return subscriber.secretKey;
     }
 
     /**
         @dev Change YOUR (msg.sender) secret key.
 
-        @param key string memory, The secret key to change to.
+        @param key string memory, The current secret key.
+        @param newKey string memory, The new key to change to.
      */
-    function changeSecretKey(string memory key) public onlySubscribed {
-        Subscriber storage subscriber = subscribers[indexOf[_msgSender()]];
-        subscriber.scretKey = key;
+    function changeSecretKey(string memory key, string memory newKey) public onlySubscribed {
+        Subscriber storage subscriber = subscribers[indexOf[msg.sender]];
+        // Checking keys are the same
+        require(
+            keccak256(abi.encode(key)) == keccak256(abi.encode(subscriber.secretKey)), 
+            "Subscriptions: Keys are not the same."
+        );
+        // Change key
+        subscriber.secretKey = newKey;
     }
 
     /**
@@ -252,6 +261,13 @@ contract Subscription is AccessControl {
     
         return (price, time);
     }
+
+    /**
+        @dev Getter for forgotKeyFee
+     */
+    function getForgotKeyFee() external view returns (uint) {
+        return forgotKeyFee;
+    } 
     
     /**
         @dev Set the handlers address.
